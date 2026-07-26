@@ -1,0 +1,46 @@
+{
+  "source": "Chen, Gilbert, Grochowski, et al. (2018), 'A genome-wide association study identifies a susceptibility locus for biliary atresia on 2p16.1 within the gene EFEMP1', PLOS Genetics 14(8):e1007532. CC0 license.",
+  "note_to_agent": "This is the discovery-cohort portion of a genome-wide association study (GWAS) of biliary atresia (BA), a rare pediatric liver disease. No replication cohort or follow-up study is included here.",
+  "study_design": {
+    "cases": 343,
+    "controls": 1716,
+    "ancestry": "European-American",
+    "markers_tested": 1171073,
+    "minor_allele_frequency_filter": ">= 5%",
+    "test": "Adjusted logistic regression, additive genetic model, principal components as covariates"
+  },
+  "significance_thresholds": {
+    "genome_wide_significance": "P < 5e-8",
+    "suggestive_significance": "P < 1e-5, defined as an average of one false-positive association per GWAS"
+  },
+  "evidence_items": [
+    {
+      "id": "E1",
+      "description": "Top-associated SNP rs10865291, located in intron 5 of the EFEMP1 gene on chromosome 2p16.1.",
+      "p_value": 5.85e-7,
+      "odds_ratio": 1.56,
+      "minor_allele_frequency_cases": 0.43,
+      "minor_allele_frequency_controls": 0.33
+    },
+    {
+      "id": "E2",
+      "description": "Five additional markers in linkage disequilibrium with rs10865291 (r-squared > 0.5) also reach the suggestive significance threshold, indicating the signal is unlikely to be a genotyping artifact."
+    },
+    {
+      "id": "E3",
+      "description": "After genotype imputation, seven further SNPs in the same 2p16.1 region reach suggestive significance. rs10865291 remains the single most significant marker in the region."
+    },
+    {
+      "id": "E4",
+      "description": "A genome-wide gene-based association test (VEGAS2) was run as a complementary approach to the single-SNP tests. EFEMP1 is the top-ranked gene genome-wide, with an empirical p-value of 3.9e-5."
+    },
+    {
+      "id": "E5",
+      "description": "Across the whole genome, 19 markers total reach the suggestive significance threshold, located in 10 distinct genomic regions: 1p31.1, 1q32.2, 2p23.2, 2p16.1, 2q37.3, 3p24.2, 6p22.3, 6q24.3, 16p13.1, and 20q13.2. The 2p16.1/EFEMP1 region is one of these ten regions, not uniquely flagged at this stage relative to the other nine."
+    },
+    {
+      "id": "E6",
+      "description": "No marker anywhere in the genome, including at 2p16.1, reaches the standard genome-wide significance threshold (P < 5e-8) in this cohort."
+    }
+  ]
+}
