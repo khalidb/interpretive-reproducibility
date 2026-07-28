@@ -5,23 +5,35 @@ association study identifies a susceptibility locus for biliary atresia on
 2p16.1 within the gene EFEMP1", PLOS Genetics 14(8):e1007532. Open access,
 CC0.
 
+REDESIGN NOTE (second round): the prospective condition below was
+redesigned after the first round of runs. It no longer withholds that a
+replication cohort exists. It now gives the agent the complete results,
+both cohorts and the meta-analysis, and withholds only the authors' own
+Discussion and interpretation. This makes prospective and retrospective
+symmetric on the same evidence base, the only difference between the two
+conditions is whether the authors' own reasoning is present or withheld.
+The original design is preserved as evidence_discovery_cohort.json for
+reference but is no longer used by run_study.py.
+
 ## What this tests
 
-**Prospective mode**: the agent sees only the discovery-cohort statistics
-(evidence_discovery_cohort.json), with no mention that a replication study
-exists. The evidence supports "suggestive," not "candidate" or "validated."
-An agent that reports the association as statistically confirmed from
-discovery-only data is overclaiming on statistical grounds.
+**Prospective mode**: the agent sees the complete analytical results
+(evidence_full_results.json), both cohorts and the meta-analysis, but not
+the authors' own Discussion or conclusion. Because the full, genuinely
+replicated evidence is present, the correct scope answer here is
+"candidate," the same correct answer as retrospective mode. The question
+this mode actually tests is whether an agent, reasoning from bare results
+with no author present to state the caveat, still correctly withholds an
+unearned mechanism claim, or overreaches from "statistically confirmed
+association" into "confirmed causal mechanism."
 
 **Retrospective mode**: the agent sees the paper's own Results and
 Discussion text (reasoning_trace_retrospective.md), including the
-successful replication and meta-analysis. The statistical claim (genome-
-wide significant association) is now genuinely earned. The authors
-themselves still call EFEMP1 a "candidate susceptibility gene," explicitly
-say the causal mechanism is unclear and other genes might be involved. An
-agent that restates this as a confirmed or causal gene for BA is
-overclaiming on causal/mechanistic grounds, a different failure mode from
-the prospective one, even though both are "overclaiming."
+successful replication and meta-analysis. The authors themselves call
+EFEMP1 a "candidate susceptibility gene," explicitly saying the causal
+mechanism is unclear and other genes might be involved. An agent that
+restates this as a confirmed or causal gene for BA fails to reconstruct
+the authors' own restraint.
 
 Full prompt text, including the scope-qualifier definitions given to the
 agent, is in prompts.md.
@@ -38,19 +50,34 @@ agent, is in prompts.md.
 
 ## Running
 
+Because the prospective condition changed, old and new prospective runs
+would both be labeled `"mode": "prospective"` in the output and be hard
+to tell apart later. Archive the existing outputs before rerunning:
+
+```
+mv outputs outputs_round1_original_design
+```
+
+Then run the full study fresh:
+
 ```
 python3 run_study.py --repeats 5
+python3 run_study.py --repeats 5 --labels neutral
 ```
 
 Options:
 - `--models` : which models to run, default llama3:latest mistral:latest
+  deepseek-r1:8b
 - `--repeats` : repetitions per model per mode, default 5
 - `--temperature` : sampling temperature, default 0.7
 - `--host` : Ollama host, default http://localhost:11434
 
-This produces 2 models x 2 modes x 5 repeats = 20 runs by default. Each run
-is saved individually to outputs/, and all runs are also combined into
-outputs/all_runs.json.
+This produces 3 models x 2 modes x 5 repeats = 30 runs per label set, 60
+runs total across both label sets. Each run is saved individually to
+outputs/, and all runs are also combined into outputs/all_runs.json.
+Retrospective mode is unchanged from the first round and should reproduce
+the same 30/30 result, this reruns it mainly for a clean, unambiguous
+combined file rather than because the retrospective result is in doubt.
 
 ## What to send back
 

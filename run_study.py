@@ -3,12 +3,40 @@
 Runs the prospective/retrospective interpretive-provenance use case
 (biliary atresia GWAS, Chen et al. 2018) against local Ollama models.
 
+REDESIGN NOTE (second round): the prospective condition was redesigned.
+It no longer withholds that a replication cohort exists. It now gives the
+agent the full results, both cohorts and the meta-analysis, and withholds
+only the authors' own Discussion and interpretation. This makes
+prospective and retrospective symmetric on the same evidence base, the
+only difference is whether the authors' own reasoning is present. The
+prior design (discovery-cohort-only evidence) tested whether an agent
+notices a missing replication cohort. This design tests whether an agent
+reasoning from bare, fully replicated results, with no author present to
+state the caveat, still correctly withholds a mechanism claim, or
+overreaches from a confirmed statistical association into a confirmed
+causal mechanism. See evidence_full_results.json and the updated
+prospective prompt in prompts.md.
+
 Requires Ollama running locally with the target models already pulled:
     ollama pull llama3:latest
     ollama pull mistral:latest
+    ollama pull deepseek-r1:8b
+
+deepseek-r1:8b is a current-generation open-weight reasoning model,
+added as a robustness check against the concern (raised independently
+by two reviewers) that the original two models, Llama 3 8B and
+Mistral 7B, are no longer representative of what readers associate
+with agentic reasoning systems. It emits an explicit chain-of-thought
+before its final answer. Depending on the Ollama version, this shows
+up either inline in the response text (wrapped in <think> tags) or in
+a separate "thinking" field if the request asks for it. This script
+requests it explicitly via the "think" option and captures both
+fields defensively, so the full reasoning trace is preserved either
+way.
 
 Usage:
     python3 run_study.py --repeats 5
+    python3 run_study.py --repeats 5 --models deepseek-r1:8b
     python3 run_study.py --repeats 5 --labels neutral
     python3 run_study.py --repeats 5 --labels named neutral
 
@@ -30,12 +58,14 @@ Label ablation:
 Output:
     Writes one JSON file per run to ./outputs/, plus a combined
     outputs/all_runs.json at the end (accumulates across script invocations
-    rather than overwriting, so a --labels neutral run does not erase a
-    prior --labels named run). Each record contains the model, mode, label
-    set, repeat index, temperature, the full prompt sent, and the raw
-    response text. Nothing is scored automatically. Scoring is done by hand
-    afterward, since that is the actual point of the exercise: reading
-    whether the model's own stated reasoning supports the scope it picked.
+    rather than overwriting, so re-running with a new model or label set
+    does not erase prior runs). Each record contains the model, mode, label
+    set, repeat index, temperature, the full prompt sent, the raw response
+    text, and, for reasoning models, the separate thinking trace if the
+    running Ollama version exposes one. Nothing is scored automatically.
+    Scoring is done by hand afterward, since that is the actual point of
+    the exercise: reading whether the model's own stated reasoning
+    supports the scope it picked.
 """
 
 import argparse
@@ -47,7 +77,7 @@ import urllib.request
 import urllib.error
 
 DEFAULT_HOST = "http://localhost:11434"
-DEFAULT_MODELS = ["llama3:latest", "mistral:latest"]  # Llama 3 8B, Mistral 7B
+DEFAULT_MODELS = ["llama3:latest", "mistral:latest", "deepseek-r1:8b"]  # Llama 3 8B, Mistral 7B, DeepSeek-R1 8B
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_REPEATS = 5
 DEFAULT_LABEL_SETS = ["named"]
@@ -114,13 +144,13 @@ def response_structure_retrospective(labels):
 
 
 def build_prospective_prompt(evidence_json_text, labels):
-    return f"""You are a geneticist reviewing preliminary results from a genome-wide
-association study (GWAS) of biliary atresia (BA), a rare pediatric liver
-disease. You are given only the evidence below, from a single discovery
-cohort. No replication cohort has been analyzed yet, and no functional or
-mechanistic follow-up study exists yet. Do not use any outside knowledge
-you may have about this gene, locus, or disease. Base your answer only on
-the evidence provided.
+    return f"""You are a geneticist reviewing the complete analytical results of a
+genetic association study of biliary atresia (BA), a rare pediatric liver
+disease. The evidence below includes results from two separate patient
+cohorts and a combined meta-analysis. It does not include any
+interpretation, discussion, or conclusion written by the study's authors.
+Do not use any outside knowledge you may have about this gene, locus, or
+disease. Base your answer only on the evidence provided.
 
 {scope_definitions(labels)}
 
@@ -150,15 +180,41 @@ def call_ollama(host, model, prompt, temperature):
         "model": model,
         "prompt": prompt,
         "stream": False,
+        "think": True,
         "options": {"temperature": temperature},
     }
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url, data=data, headers={"Content-Type": "application/json"}
     )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-    return body.get("response", "")
+    try:
+        with urllib.request.urlopen(req, timeout=900) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        # Older Ollama versions, or non-reasoning models, may reject the
+        # "think" field outright. Retry once without it before giving up,
+        # so this script still works against llama3/mistral and against
+        # Ollama versions that predate the think parameter.
+        payload.pop("think", None)
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=data, headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=900) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+
+    response_text = body.get("response", "")
+    thinking_text = body.get("thinking", "")
+
+    # If the running Ollama version does not separate thinking into its
+    # own field, a reasoning model's <think>...</think> block will be
+    # sitting inline inside response_text already. In that case
+    # thinking_text stays empty and the full trace is still preserved,
+    # just undivided, in response_text. We do not attempt to strip or
+    # parse <think> tags here. The point of this script is to keep the
+    # model's own words intact for a human to read afterward, not to
+    # post-process them.
+    return response_text, thinking_text
 
 
 def load_existing_runs(combined_path):
@@ -188,7 +244,7 @@ def main():
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    evidence_path = os.path.join(SCRIPT_DIR, "evidence_discovery_cohort.json")
+    evidence_path = os.path.join(SCRIPT_DIR, "evidence_full_results.json")
     trace_path = os.path.join(SCRIPT_DIR, "reasoning_trace_retrospective.md")
 
     with open(evidence_path, "r") as f:
@@ -221,16 +277,18 @@ def main():
                         file=sys.stderr,
                     )
                     try:
-                        response_text = call_ollama(
+                        response_text, thinking_text = call_ollama(
                             args.host, model, prompt, args.temperature
                         )
-                    except urllib.error.URLError as e:
+                    except (urllib.error.URLError, TimeoutError, OSError) as e:
                         print(
                             f"  ERROR calling Ollama for {model}/{mode_name}/"
-                            f"{label_set_name}/{repeat_idx}: {e}",
+                            f"{label_set_name}/{repeat_idx}: {e}. Recording "
+                            f"as failed and continuing with the next run.",
                             file=sys.stderr,
                         )
                         response_text = None
+                        thinking_text = None
 
                     record = {
                         "model": model,
@@ -241,6 +299,7 @@ def main():
                         "temperature": args.temperature,
                         "prompt": prompt,
                         "response": response_text,
+                        "thinking": thinking_text,
                         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
                     }
                     all_runs.append(record)

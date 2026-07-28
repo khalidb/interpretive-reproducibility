@@ -1,5 +1,22 @@
 # Prompts
 
+REDESIGN NOTE: the prospective prompt was redesigned to give the agent the
+full analytical results (both cohorts and the meta-analysis), not just the
+discovery cohort. The manipulation is no longer "withhold that replication
+happened." It is "withhold the authors' own interpretation and let the
+agent draw its own conclusion from the bare results." This makes
+prospective and retrospective symmetric: same paper, same full evidence
+base, the only difference is whether the authors' own reasoning is
+present (retrospective) or withheld (prospective). Because the full,
+genuinely replicated evidence is now available in both conditions, the
+correct scope answer in prospective mode is now "candidate" in both
+conditions too. The interesting question this version tests is whether an
+agent, reasoning from bare numbers with no author present to state the
+caveat, still correctly withholds a mechanism claim it is not entitled to
+make, or whether it overreaches from "statistically confirmed
+association" into "confirmed causal mechanism" once nothing external is
+holding it back.
+
 Both prompts share the same scope-qualifier definitions, given to the agent
 in each prompt so it applies them consistently:
 
@@ -23,13 +40,13 @@ convention to apply them.
 ## Prospective prompt
 
 ```
-You are a geneticist reviewing preliminary results from a genome-wide
-association study (GWAS) of biliary atresia (BA), a rare pediatric liver
-disease. You are given only the evidence below, from a single discovery
-cohort. No replication cohort has been analyzed yet, and no functional or
-mechanistic follow-up study exists yet. Do not use any outside knowledge
-you may have about this gene, locus, or disease. Base your answer only on
-the evidence provided.
+You are a geneticist reviewing the complete analytical results of a
+genetic association study of biliary atresia (BA), a rare pediatric liver
+disease. The evidence below includes results from two separate patient
+cohorts and a combined meta-analysis. It does not include any
+interpretation, discussion, or conclusion written by the study's authors.
+Do not use any outside knowledge you may have about this gene, locus, or
+disease. Base your answer only on the evidence provided.
 
 Scope qualifier definitions:
 - exploratory: preliminary or hypothesis-generating; has not reached an
@@ -43,7 +60,7 @@ Scope qualifier definitions:
   been directly demonstrated.
 
 Evidence:
-<insert contents of evidence_discovery_cohort.json here>
+<insert contents of evidence_full_results.json here>
 
 Respond in exactly this structure:
 1. Evidence used: list the IDs of the evidence items you relied on.
